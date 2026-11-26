@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Powerball Analytics | 미국 파워볼 번호 생성기 & 기대값 대시보드</title>
+
+    <!-- Pretendard & JetBrains Mono 폰트 -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+                    },
+                    colors: {
+                        navy: {
+                            950: '#060B16',
+                            900: '#0B1325',
+                            800: '#131F38',
+                            700: '#1D2D4E',
+                        },
+                        pb: {
+                            red: '#E11D48',
+                            redDark: '#9F1239',
+                            gold: '#F59E0B',
+                            goldLight: '#FCD34D',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #060B16;
+            background-image:
+                radial-gradient(circle at 15% 10%, rgba(225, 29, 72, 0.12) 0%, transparent 38%),
+                radial-gradient(circle at 85% 15%, rgba(245, 158, 11, 0.10) 0%, transparent 35%),
+                radial-gradient(circle at 50% 90%, rgba(30, 58, 138, 0.18) 0%, transparent 45%);
+            color: #F8FAFC;
+            font-variant-numeric: tabular-nums;
+            word-break: keep-all;
+        }
+
+        /* 3D 입체 로또 공 스타일 (순수 CSS) */
+        .lotto-ball {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            user-select: none;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .lotto-ball::before {
+            /* 상단 유리 광택 하이라이트 */
+            content: '';
+            position: absolute;
+            top: 9%;
+            left: 16%;
+            width: 42%;
+            height: 24%;
+            border-radius: 50%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.05) 100%);
+            transform: rotate(-22deg);
+            pointer-events: none;
+        }
+
+        .ball-white {
+            background: radial-gradient(circle at 34% 28%, #FFFFFF 0%, #F1F5F9 48%, #CBD5E1 82%, #94A3B8 100%);
+            color: #0F172A;
+            box-shadow:
+                inset -6px -8px 14px rgba(15, 23, 42, 0.28),
+                inset 4px 4px 10px rgba(255, 255, 255, 0.95),
+                0 12px 24px -6px rgba(0, 0, 0, 0.65),
+                0 0 0 1px rgba(255, 255, 255, 0.15);
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        .ball-red {
+            background: radial-gradient(circle at 32% 26%, #FB7185 0%, #E11D48 45%, #BE123C 78%, #7F1D1D 100%);
+            color: #FFFFFF;
+            box-shadow:
+                inset -6px -8px 14px rgba(69, 10, 10, 0.55),
+                inset 4px 4px 10px rgba(255, 190, 200, 0.55),
+                0 12px 28px -4px rgba(225, 29, 72, 0.55),
+                0 0 0 1px rgba(251, 113, 133, 0.35);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+        }
+
+        .ball-placeholder {
+            background: radial-gradient(circle at 35% 30%, #1E293B 0%, #0F172A 75%, #020617 100%);
+            color: #475569;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(148, 163, 184, 0.18);
+        }
+
+        /* 공 바닥 그림자 */
+        .ball-shadow {
+            width: 68%;
+            height: 10px;
+            margin: 8px auto 0;
+            border-radius: 50%;
+            background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0) 75%);
+        }
+
+        /* 순차 팝업 & 롤링 애니메이션 */
+        @keyframes ballPopIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-22px) scale(0.55) rotate(-140deg);
+            }
+            65% {
+                opacity: 1;
+                transform: translateY(4px) scale(1.08) rotate(12deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1) rotate(0deg);
+            }
+        }
+
+        .animate-ball-pop {
+            animation: ballPopIn 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* 미니 볼 (히스토리 & 테이블용) */
+        .mini-ball {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+        .mini-white {
+            background: radial-gradient(circle at 30% 30%, #FFFFFF 0%, #E2E8F0 65%, #94A3B8 100%);
+            color: #0F172A;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+        }
+        .mini-red {
+            background: radial-gradient(circle at 30% 30%, #FB7185 0%, #E11D48 60%, #881337 100%);
+            color: #FFFFFF;
+            box-shadow: 0 2px 6px rgba(225, 29, 72, 0.45);
+        }
+
+        /* 커스텀 레인지 슬라이더 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #E11D48 0%, #F59E0B 100%);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #FFFFFF;
+            border: 3px solid #F59E0B;
+            margin-top: -7px;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+            transition: transform 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        /* 토글 스위치 */
+        .toggle-track {
+            transition: background-color 0.25s ease;
+        }
+        .toggle-thumb {
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 글래스 카드 */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-pb-red selection:text-white">
+
+    <!-- ==================== 상단 헤더 ==================== -->
+    <header class="sticky top-0 z-40 bg-navy-950/85 backdrop-blur-md border-b border-slate-800/80">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <!-- 순수 SVG 파워볼 로고 아이콘 -->
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-pb-red to-pb-redDark flex items-center justify-center shadow-lg shadow-rose-950/50 border border-rose-400/30">
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                        <path d="M9.5 16V8H13.2C14.8 8 15.8 8.9 15.8 10.4C15.8 11.9 14.8 12.8 13.2 12.8H9.5" stroke="white" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white flex items-center gap-2">
+                        <span>POWERBALL</span>
+                        <span class="text-pb-goldLight font-mono text-xs sm:text-sm font-bold">ANALYTICS</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">미국 파워볼 번호 생성기 · 확률 & 기대값 금융 대시보드</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3 text-xs font-mono">
+                <span class="px-2.5 py-1 rounded-lg bg-navy-800 border border-slate-700 text-slate-300">
+                    WHITE <strong class="text-white">5/69</strong>
+                </span>
+                <span class="px-2.5 py-1 rounded-lg bg-rose-950/60 border border-rose-500/30 text-rose-200">
+                    PB <strong class="text-white">1/26</strong>
+                </span>
+                <span class="hidden md:inline-block px-2.5 py-1 rounded-lg bg-amber-950/50 border border-amber-500/30 text-amber-300 font-bold">
+                    TICKET $2.00
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
+
+        <!-- ==================== 1. 파워볼 번호 생성기 (메인 섹션) ==================== -->
+        <section class="glass-card rounded-3xl p-6 sm:p-8 lg:p-10 relative overflow-hidden">
+            <!-- 상단 은은한 골드/레드 라인 -->
+            <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-pb-red via-pb-gold to-pb-red"></div>
+
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pb-red/15 border border-pb-red/30 text-rose-300 text-xs font-bold mb-2">
+                        <span class="w-2 h-2 rounded-full bg-pb-red animate-pulse"></span>
+                        <span>LIVE DRAW SIMULATOR</span>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">파워볼 번호 생성기</h2>
+                    <p class="text-sm text-slate-400 mt-1">1~69 중 중복 없는 흰색 공 5개(오름차순)와 1~26 중 빨간색 파워볼 1개를 무작위 추첨합니다.</p>
+                </div>
+
+                <!-- 복사 버튼 -->
+                <button type="button" onclick="copyCurrentNumbers()" id="copy-main-btn"
+                        class="self-start md:self-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-navy-800 hover:bg-navy-700 border border-slate-700 text-slate-200 text-sm font-semibold transition-all active:scale-95">
+                    <svg class="w-4 h-4 text-pb-goldLight" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <span>현재 번호 복사</span>
+                </button>
+            </div>
+
+            <!-- 3D 로또 공 디스플레이 스테이지 -->
+            <div class="bg-navy-950/70 rounded-2xl border border-slate-800/90 py-8 sm:py-10 px-4 mb-8">
+                <div id="ball-stage" class="flex flex-wrap items-center justify-center gap-3 sm:gap-5 md:gap-6">
+                    <!-- 흰색 공 5개 -->
+                    <div class="text-center">
+                        <div class="lotto-ball ball-placeholder w-14 h-14 sm:w-20 sm:h-20 text-xl sm:text-3xl" data-slot="0">?</div>
+                        <div class="ball-shadow"></div>
+                    </div>
+                    <div class="text-center">
+                        <div class="lotto-ball ball-placeholder w-14 h-14 sm:w-20 sm:h-20 text-xl sm:text-3xl" data-slot="1">?</div>
+                        <div class="ball-shadow"></div>
+                    </div>
+                    <div class="text-center">
+                        <div class="lotto-ball ball-placeholder w-14 h-14 sm:w-20 sm:h-20 text-xl sm:text-3xl" data-slot="2">?</div>
+                        <div class="ball-shadow"></div>
+                    </div>
+                    <div class="text-center">
+                        <div class="lotto-ball ball-placeholder w-14 h-14 sm:w-20 sm:h-20 text-xl sm:text-3xl" data-slot="3">?</div>
+                        <div class="ball-shadow"></div>
+                    </div>
+                    <div class="text-center">
+                        <div class="lotto-ball ball-placeholder w-14 h-14 sm:w-20 sm:h-20 text-xl sm:text-3xl" data-slot="4">?</div>
+                        <div class="ball-shadow"></div>
+                    </div>
+
+                    <!-- 구분 기호 -->
+                    <div class="flex items-center justify-center px-1 sm:px-2 pb-4">
+                        <span class="text-2xl sm:text-3xl font-black text-pb-gold">+</span>
+                    </div>
+
+                    <!-- 빨간색 파워볼 1개 -->
+                    <div class="text-center">
+                        <div class="lotto-ball ball-placeholder w-14 h-14 sm:w-20 sm:h-20 text-xl sm:text-3xl ring-2 ring-pb-red/40 ring-offset-2 ring-offset-navy-950" data-slot="5">PB</div>
+                        <div class="ball-shadow"></div>
+                    </div>
+                </div>
+                <p id="draw-status" class="text-center text-xs font-mono text-slate-500 mt-4">
+                    아래 버튼을 눌러 행운의 파워볼 조합을 추첨해 보세요.
+                </p>
+            </div>
+
+            <!-- 액션 버튼 영역 -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5">
+                <button type="button" onclick="generateSingleGame()" id="btn-generate-one"
+                        class="flex-1 sm:flex-none sm:min-w-[230px] inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-2xl bg-gradient-to-r from-pb-red to-rose-600 hover:from-rose-500 hover:to-pb-red text-white font-extrabold text-base shadow-lg shadow-rose-950/60 transition-all transform hover:-translate-y-0.5 active:scale-95">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>번호 생성하기</span>
+                </button>
+
+                <button type="button" onclick="generateFiveGames()" id="btn-generate-five"
+                        class="flex-1 sm:flex-none sm:min-w-[210px] inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-500/20 to-pb-gold/15 hover:from-amber-500/30 hover:to-pb-gold/25 border border-pb-gold/40 text-pb-goldLight font-bold text-base transition-all transform hover:-translate-y-0.5 active:scale-95">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <span>5게임 한번에 뽑기 ($10)</span>
+                </button>
+            </div>
+
+            <!-- 5게임 일괄 생성 결과 컨테이너 -->
+            <div id="multi-draw-box" class="hidden mt-7 pt-6 border-t border-slate-800">
+                <div class="flex items-center justify-between mb-3.5">
+                    <h3 class="text-sm font-bold text-pb-goldLight flex items-center gap-2">
+                        <span>5게임 일괄 추첨 결과</span>
+                        <span class="text-xs font-mono text-slate-400 font-normal">(티켓 총액 $10.00)</span>
+                    </h3>
+                    <button type="button" onclick="copyFiveGames()"
+                            class="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg bg-navy-800 border border-slate-700 transition-colors">
+                        5게임 전체 복사
+                    </button>
+                </div>
+                <div id="multi-draw-list" class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <!-- JS 동적 렌더링 -->
+                </div>
+            </div>
+
+            <!-- 최근 생성 히스토리 (최대 10개) -->
+            <div class="mt-8 pt-6 border-t border-slate-800/80">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-bold text-slate-200">최근 생성 히스토리</h3>
+                        <span id="history-count" class="px-2 py-0.5 rounded-full bg-navy-800 text-slate-400 font-mono text-xs">0 / 10</span>
+                    </div>
+                    <button type="button" onclick="clearHistory()"
+                            class="text-xs font-semibold text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span>히스토리 초기화</span>
+                    </button>
+                </div>
+
+                <div id="history-list" class="space-y-2">
+                    <div class="text-center py-6 rounded-xl bg-navy-950/50 border border-dashed border-slate-800 text-xs text-slate-500">
+                        아직 생성된 번호가 없습니다. 번호를 추첨하면 최대 10개까지 자동 기록됩니다.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 2. 1등 당첨 확률 & 핵심 지표 대시보드 ==================== -->
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg sm:text-xl font-extrabold text-white flex items-center gap-2">
+                    <span class="w-1.5 h-6 rounded-full bg-pb-gold"></span>
+                    <span>1등 당첨 확률 & 핵심 지표</span>
+                </h2>
+                <span class="text-xs font-mono text-slate-400">COMBINATORICS DASHBOARD</span>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-4 sm:gap-5">
+                <!-- 카드 1: 1등 당첨 확률 -->
+                <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">1ST PRIZE ODDS (JACKPOT)</span>
+                        <div class="mt-3 font-mono text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                            1 / 292,201,338
+                        </div>
+                        <div class="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-950/60 border border-rose-500/25 font-mono text-xs text-rose-300 font-bold">
+                            약 0.0000003422%
+                        </div>
+                    </div>
+                    <p class="mt-4 text-xs text-slate-400 leading-relaxed">
+                        흰색 공 5개와 빨간색 파워볼 1개를 모두 정확히 일치시켜야 하는 천문학적 확률입니다.
+                    </p>
+                </div>
+
+                <!-- 카드 2: 수학적 계산 공식 시각화 -->
+                <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-pb-goldLight uppercase tracking-wider">PROBABILITY FORMULA</span>
+                        <div class="mt-3 p-3.5 rounded-xl bg-navy-950/80 border border-slate-800 font-mono text-xs sm:text-sm space-y-2">
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span>C(69, 5) × 26</span>
+                                <span class="text-slate-500">조합 공식</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sky-300">
+                                <span>= 11,238,513 × 26</span>
+                                <span class="text-slate-500">흰공 × PB</span>
+                            </div>
+                            <div class="pt-1.5 border-t border-slate-800 flex items-center justify-between text-pb-goldLight font-extrabold">
+                                <span>= 292,201,338</span>
+                                <span class="text-[11px] font-sans font-normal text-slate-400">총 경우의 수</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-xs text-slate-400">
+                        순서와 무관하게 69개 중 5개를 뽑는 조합 수에 파워볼 26가지를 곱해 산출합니다.
+                    </p>
+                </div>
+
+                <!-- 카드 3: 전체 당첨 확률 & 티켓 단가 -->
+                <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">OVERALL WINNING ODDS</span>
+                        <div class="mt-3 flex items-baseline gap-2.5">
+                            <span class="font-mono text-2xl sm:text-3xl font-extrabold text-white">1 / 24.87</span>
+                            <span class="font-mono text-sm font-bold text-emerald-400">(약 4.02%)</span>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between text-xs bg-navy-950/60 rounded-lg px-3 py-2 border border-slate-800">
+                            <span class="text-slate-400">티켓 1장 가격</span>
+                            <span class="font-mono font-bold text-white">$2.00 USD</span>
+                        </div>
+                    </div>
+                    <p class="mt-4 text-xs text-slate-400 leading-relaxed">
+                        1등~9등 전체 당첨 조합(11,750,538개) 기준, 약 25장 구매 시 평균 1장 꼴로 최소 $4 이상 당첨됩니다.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3. 인터랙티브 기대값(Expected Value) 계산기 ==================== -->
+        <section class="glass-card rounded-3xl p-6 sm:p-8 space-y-6">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+                <div>
+                    <span class="text-xs font-bold text-pb-goldLight uppercase tracking-wider">INTERACTIVE EV CALCULATOR</span>
+                    <h2 class="text-xl sm:text-2xl font-black text-white mt-1">실시간 기대값(Expected Value) 시뮬레이터</h2>
+                    <p class="text-sm text-slate-400 mt-1">잭팟 규모에 따른 티켓 1장($2)의 수학적 기대 수익과 환수율을 계산합니다.</p>
+                </div>
+
+                <!-- 현실 반영 모드 토글 -->
+                <label class="inline-flex items-center justify-between lg:justify-start gap-3.5 px-4 py-3 rounded-2xl bg-navy-950/80 border border-slate-700/80 cursor-pointer select-none hover:border-pb-gold/50 transition-colors">
+                    <div>
+                        <div class="text-sm font-bold text-white flex items-center gap-1.5">
+                            <span>현실 반영 모드</span>
+                            <span id="reality-badge" class="hidden px-1.5 py-0.5 rounded bg-pb-gold/20 text-pb-goldLight text-[10px] font-mono">ON</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400">일시불(50%) + 연방세 공제(37%) 적용</div>
+                    </div>
+                    <div class="relative">
+                        <input type="checkbox" id="reality-toggle" class="sr-only" onchange="updateEV()">
+                        <div id="toggle-track" class="toggle-track w-12 h-6 bg-slate-700 rounded-full"></div>
+                        <div id="toggle-thumb" class="toggle-thumb absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow"></div>
+                    </div>
+                </label>
+            </div>
+
+            <!-- 잭팟 금액 조절 컨트롤 -->
+            <div class="bg-navy-950/70 rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <label for="jackpot-input" class="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                            현재 1등 명목 잭팟 (ADVERTISED JACKPOT)
+                        </label>
+                        <div class="mt-1 flex items-baseline gap-2">
+                            <span id="jackpot-display" class="font-mono text-3xl sm:text-4xl font-extrabold text-pb-goldLight">$200M</span>
+                            <span id="jackpot-krw" class="text-xs sm:text-sm text-slate-400 font-medium">(2억 달러)</span>
+                        </div>
+                    </div>
+
+                    <!-- 직접 숫자 입력 -->
+                    <div class="flex items-center gap-2 bg-navy-900 border border-slate-700 rounded-xl px-3.5 py-2 self-start sm:self-center">
+                        <span class="font-mono text-slate-400 font-bold">$</span>
+                        <input type="number" id="jackpot-input" min="20" max="2000" step="10" value="200"
+                               class="w-24 bg-transparent text-white font-mono text-lg font-bold focus:outline-none text-right">
+                        <span class="font-mono text-pb-goldLight font-bold text-sm">M</span>
+                    </div>
+                </div>
+
+                <!-- 슬라이더 -->
+                <div>
+                    <input type="range" id="jackpot-slider" min="20" max="2000" step="5" value="200" class="w-full">
+                    <div class="flex justify-between text-[11px] font-mono text-slate-500 mt-1.5">
+                        <span>$20M</span>
+                        <span>$491M (명목 손익분기)</span>
+                        <span>$1,000M ($1B)</span>
+                        <span>$2,000M ($2B)</span>
+                    </div>
+                </div>
+
+                <!-- 빠른 프리셋 버튼 -->
+                <div class="flex flex-wrap items-center gap-2 pt-1">
+                    <span class="text-xs text-slate-500 mr-1">빠른 선택:</span>
+                    <button type="button" onclick="setJackpot(20)" class="preset-btn px-3 py-1 rounded-lg bg-navy-800 hover:bg-navy-700 border border-slate-700 font-mono text-xs text-slate-300 transition-colors">$20M (최소)</button>
+                    <button type="button" onclick="setJackpot(200)" class="preset-btn px-3 py-1 rounded-lg bg-navy-800 hover:bg-navy-700 border border-slate-700 font-mono text-xs text-slate-300 transition-colors">$200M (기본)</button>
+                    <button type="button" onclick="setJackpot(491)" class="preset-btn px-3 py-1 rounded-lg bg-navy-800 hover:bg-navy-700 border border-slate-700 font-mono text-xs text-amber-300 transition-colors">$491M (손익분기)</button>
+                    <button type="button" onclick="setJackpot(1000)" class="preset-btn px-3 py-1 rounded-lg bg-navy-800 hover:bg-navy-700 border border-slate-700 font-mono text-xs text-slate-300 transition-colors">$1,000M ($1B)</button>
+                    <button type="button" onclick="setJackpot(1558)" class="preset-btn px-3 py-1 rounded-lg bg-navy-800 hover:bg-navy-700 border border-slate-700 font-mono text-xs text-emerald-300 transition-colors">$1,558M (실질 손익분기)</button>
+                    <button type="button" onclick="setJackpot(2000)" class="preset-btn px-3 py-1 rounded-lg bg-navy-800 hover:bg-navy-700 border border-slate-700 font-mono text-xs text-slate-300 transition-colors">$2,000M ($2B)</button>
+                </div>
+
+                <!-- 현실 반영 모드 적용 시 실질 잭팟 안내 -->
+                <div id="effective-jackpot-banner" class="hidden rounded-xl bg-amber-950/40 border border-amber-500/30 px-4 py-3 text-xs text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span>
+                        <strong class="text-amber-300">현실 반영 적용 중:</strong>
+                        일시불 수령(50%) 후 세금(37%) 공제 시 1등 실수령률 <strong class="font-mono">31.5%</strong> 적용
+                    </span>
+                    <span class="font-mono font-bold text-white">
+                        실질 잭팟: <span id="effective-jackpot-text">$63.00M</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- 실시간 계산 KPI 3종 -->
+            <div class="grid md:grid-cols-3 gap-4">
+                <!-- 1. 총 기대 수익 (Gross EV) -->
+                <div class="rounded-2xl bg-navy-900/90 border border-slate-800 p-5">
+                    <div class="text-xs font-bold text-slate-400 uppercase">총 기대 수익 (Gross EV)</div>
+                    <div id="ev-gross" class="mt-2 font-mono text-3xl font-extrabold text-white">$1.0043</div>
+                    <div id="ev-gross-breakdown" class="mt-2 text-[11px] font-mono text-slate-400">
+                        잭팟($0.6845) + 하위($0.3199)
+                    </div>
+                </div>
+
+                <!-- 2. 순 기대값 (Net EV) -->
+                <div id="ev-net-card" class="rounded-2xl bg-navy-900/90 border border-rose-500/30 p-5 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-400 uppercase">순 기대값 (Net EV)</span>
+                        <span id="ev-status-tag" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300">기대 손실</span>
+                    </div>
+                    <div id="ev-net" class="mt-2 font-mono text-3xl font-extrabold text-rose-400">-$0.9957</div>
+                    <div class="mt-2 text-[11px] font-mono text-slate-400">
+                        총 기대 수익 - 티켓 가격($2.00)
+                    </div>
+                </div>
+
+                <!-- 3. 기대 환수율 (ROI) -->
+                <div class="rounded-2xl bg-navy-900/90 border border-slate-800 p-5">
+                    <div class="text-xs font-bold text-slate-400 uppercase">기대 환수율 (Return Rate)</div>
+                    <div id="ev-roi" class="mt-2 font-mono text-3xl font-extrabold text-sky-400">50.22%</div>
+                    <div class="mt-2.5 w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div id="ev-roi-bar" class="h-full bg-gradient-to-r from-pb-red via-pb-gold to-emerald-400 transition-all duration-300" style="width: 50.22%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 손익분기점 안내 문구 -->
+            <div class="rounded-2xl bg-navy-950/60 border border-slate-800/90 p-4 flex items-start gap-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                <svg class="w-5 h-5 text-pb-goldLight shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                    <strong class="text-white">손익분기점(Break-Even) 안내:</strong>
+                    명목 잭팟 기준 티켓 가격($2)을 상회하는 손익분기점은 <strong class="font-mono text-pb-goldLight">약 $4.91억 ($490.9M)</strong>입니다.
+                    다만 <strong class="text-white">현실 반영 모드</strong>(일시불 50% · 세금 37% 공제)를 적용하면 실질 손익분기점은 <strong class="font-mono text-emerald-400">약 $15.58억 ($1,558.5M)</strong>까지 상승하며, 실제 추첨에서는 복수 당첨자 발생 시 잭팟이 균등 분배(Split)되는 리스크도 존재합니다.
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 4. 전체 등수별 확률 및 기대값 상세 테이블 (1등~9등) ==================== -->
+        <section class="glass-card rounded-3xl p-6 sm:p-8">
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
+                <div>
+                    <span class="text-xs font-bold text-sky-400 uppercase tracking-wider">PRIZE TIERS BREAKDOWN</span>
+                    <h2 class="text-xl sm:text-2xl font-black text-white mt-1">전체 등수별 당첨 확률 및 기대값 상세 (1등~9등)</h2>
+                </div>
+                <span class="text-xs font-mono text-slate-400">슬라이더 및 현실 반영 모드 연동</span>
+            </div>
+
+            <div class="overflow-x-auto -mx-2 px-2">
+                <table class="w-full text-left border-collapse min-w-[640px]">
+                    <thead>
+                        <tr class="border-b border-slate-700/80 text-xs font-bold text-slate-400 uppercase">
+                            <th class="py-3.5 px-3">등수</th>
+                            <th class="py-3.5 px-3">매칭 조건</th>
+                            <th class="py-3.5 px-3 text-right">당첨금 (USD)</th>
+                            <th class="py-3.5 px-3 text-right">당첨 확률 (1 / N)</th>
+                            <th class="py-3.5 px-3 text-right">기대값 기여액 ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prize-table-body" class="divide-y divide-slate-800/80 text-sm">
+                        <!-- JS에서 동적 렌더링 -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="border-t-2 border-slate-700 bg-navy-950/70 font-bold">
+                            <td class="py-4 px-3 text-white" colspan="2">전체 합계 (1등 ~ 9등)</td>
+                            <td class="py-4 px-3 text-right font-mono text-xs text-slate-400">티켓 $2.00 기준</td>
+                            <td class="py-4 px-3 text-right font-mono text-emerald-400">1 / 24.87 (4.02%)</td>
+                            <td id="table-total-ev" class="py-4 px-3 text-right font-mono text-base text-pb-goldLight">$1.0043</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== 푸터 ==================== -->
+    <footer class="border-t border-slate-800/80 mt-10 py-8 text-center text-xs text-slate-500">
+        <div class="max-w-6xl mx-auto px-4 space-y-1.5">
+            <p class="font-semibold text-slate-400">Powerball Analytics — 확률 및 기대값 교육·시뮬레이션 대시보드</p>
+            <p>본 페이지의 번호 생성은 브라우저의 무작위 난수 알고리즘을 사용하며, 실제 당첨을 보장하지 않습니다. (미국 파워볼 공식 규칙 5/69 + 1/26 기준)</p>
+        </div>
+    </footer>
+
+    <!-- 커스텀 토스트 알림 (alert 대체) -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 hidden items-center gap-2.5 px-5 py-3.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold shadow-2xl border border-slate-700">
+        <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+        <span id="toast-msg">복사되었습니다.</span>
+    </div>
+
+    <!-- ==================== JavaScript 로직 ==================== -->
+    <script>
+        // ==================== 1. 수학적 상수 및 등수 테이블 데이터 ====================
+        const TOTAL_COMBINATIONS = 292201338; // C(69, 5) * 26 = 11,238,513 * 26
+        const TICKET_PRICE = 2.0;
+        const REALITY_MULTIPLIER = 0.5 * (1 - 0.37); // 일시불 50% × 세후 63% = 0.315
+
+        // 공식 미국 파워볼 1등~9등 데이터 (정확한 경우의 수 포함)
+        const PRIZE_TIERS = [
+            { rank: '1등', white: 5, pb: true,  label: '5 + PB', prize: null,    combos: 1,       oddsText: '1 / 292,201,338' },
+            { rank: '2등', white: 5, pb: false, label: '5 + 0',  prize: 1000000, combos: 25,      oddsText: '1 / 11,688,053.52' },
+            { rank: '3등', white: 4, pb: true,  label: '4 + PB', prize: 50000,   combos: 320,     oddsText: '1 / 913,129.18' },
+            { rank: '4등', white: 4, pb: false, label: '4 + 0',  prize: 100,     combos: 8000,    oddsText: '1 / 36,525.17' },
+            { rank: '5등', white: 3, pb: true,  label: '3 + PB', prize: 100,     combos: 20160,   oddsText: '1 / 14,494.11' },
+            { rank: '6등', white: 3, pb: false, label: '3 + 0',  prize: 7,       combos: 504000,  oddsText: '1 / 579.76' },
+            { rank: '7등', white: 2, pb: true,  label: '2 + PB', prize: 7,       combos: 416640,  oddsText: '1 / 701.33' },
+            { rank: '8등', white: 1, pb: true,  label: '1 + PB', prize: 4,       combos: 3176880, oddsText: '1 / 91.98' },
+            { rank: '9등', white: 0, pb: true,  label: '0 + PB', prize: 4,       combos: 7624512, oddsText: '1 / 38.32' },
+        ];
+
+        // 하위 등수(2~9등) 고정 기대값 합계 ($0.31986865... ≈ $0.3199)
+        const LOWER_TIER_FIXED_EV = PRIZE_TIERS
+            .filter(t => t.prize !== null)
+            .reduce((sum, t) => sum + (t.combos * t.prize) / TOTAL_COMBINATIONS, 0);
+
+        // 상태 변수
+        let currentDraw = null;
+        let lastFiveDraws = [];
+        let drawHistory = [];
+        let isAnimating = false;
+
+        // ==================== 2. 파워볼 번호 추첨 유틸리티 ====================
+        function drawPowerballSet() {
+            const whites = [];
+            while (whites.length < 5) {
+                const num = Math.floor(Math.random() * 69) + 1;
+                if (!whites.includes(num)) whites.push(num);
+            }
+            whites.sort((a, b) => a - b);
+            const powerball = Math.floor(Math.random() * 26) + 1;
+
+            const now = new Date();
+            const timeStr = now.toTimeString().slice(0, 8);
+            return { whites, powerball, time: timeStr };
+        }
+
+        function formatDrawString(draw) {
+            const w = draw.whites.map(n => String(n).padStart(2, '0')).join(' - ');
+            const p = String(draw.powerball).padStart(2, '0');
+            return `${w}  +  PB ${p}`;
+        }
+
+        // ==================== 3. 단일 추첨 (순차 팝업 애니메이션) ====================
+        function generateSingleGame() {
+            if (isAnimating) return;
+            isAnimating = true;
+
+            const draw = drawPowerballSet();
+            currentDraw = draw;
+
+            const slots = document.querySelectorAll('#ball-stage .lotto-ball');
+            const statusEl = document.getElementById('draw-status');
+            statusEl.textContent = '공을 추첨하는 중입니다...';
+
+            // 기존 공 초기화
+            slots.forEach((slot, idx) => {
+                slot.classList.remove('animate-ball-pop', 'ball-white', 'ball-red');
+                slot.classList.add('ball-placeholder');
+                slot.textContent = idx === 5 ? 'PB' : '?';
+            });
+
+            // 순차적으로 1개씩 팝업/롤링 등장
+            const allNums = [...draw.whites, draw.powerball];
+            allNums.forEach((num, idx) => {
+                setTimeout(() => {
+                    const slot = slots[idx];
+                    slot.classList.remove('ball-placeholder');
+                    slot.classList.add(idx === 5 ? 'ball-red' : 'ball-white');
+                    slot.textContent = num;
+
+                    // 리플로우 트리거 후 애니메이션 적용
+                    void slot.offsetWidth;
+                    slot.classList.add('animate-ball-pop');
+
+                    if (idx === 5) {
+                        isAnimating = false;
+                        statusEl.textContent = `추첨 완료 (${draw.time}) · 흰색 공 오름차순 정렬됨`;
+                        addToHistory(draw);
+                    }
+                }, idx * 115);
+            });
+        }
+
+        // ==================== 4. 5게임 한번에 뽑기 ====================
+        function generateFiveGames() {
+            const games = [];
+            for (let i = 0; i < 5; i++) {
+                games.push(drawPowerballSet());
+            }
+            lastFiveDraws = games;
+
+            // 첫 번째 게임을 메인 스테이지에도 즉시 반영
+            renderImmediateMainBalls(games[0]);
+            currentDraw = games[0];
+
+            // 히스토리에 5게임 모두 추가
+            games.slice().reverse().forEach(g => addToHistory(g));
+
+            // 5게임 결과 박스 표시
+            const box = document.getElementById('multi-draw-box');
+            const list = document.getElementById('multi-draw-list');
+            box.classList.remove('hidden');
+
+            list.innerHTML = games.map((game, i) => `
+                <div class="rounded-xl bg-navy-950/80 border border-slate-800 p-3.5 hover:border-pb-gold/40 transition-colors">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <span class="font-mono text-[11px] font-bold text-pb-goldLight">GAME #${i + 1}</span>
+                        <button type="button" onclick="copyText('${formatDrawString(game)}', 'GAME #${i + 1} 번호가 복사되었습니다.')"
+                                class="text-[11px] text-slate-400 hover:text-white transition-colors">복사</button>
+                    </div>
+                    <div class="flex items-center justify-between gap-1">
+                        ${game.whites.map(n => `<span class="mini-ball mini-white w-7 h-7 text-xs">${n}</span>`).join('')}
+                        <span class="mini-ball mini-red w-7 h-7 text-xs">${game.powerball}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            showToast('5게임(총 $10) 파워볼 번호가 생성되었습니다.');
+        }
+
+        function renderImmediateMainBalls(draw) {
+            const slots = document.querySelectorAll('#ball-stage .lotto-ball');
+            const allNums = [...draw.whites, draw.powerball];
+            allNums.forEach((num, idx) => {
+                const slot = slots[idx];
+                slot.classList.remove('ball-placeholder', 'animate-ball-pop', 'ball-white', 'ball-red');
+                slot.classList.add(idx === 5 ? 'ball-red' : 'ball-white');
+                slot.textContent = num;
+                void slot.offsetWidth;
+                slot.classList.add('animate-ball-pop');
+            });
+            document.getElementById('draw-status').textContent = `5게임 추첨 완료 · 메인 화면은 GAME #1 표시 (${draw.time})`;
+        }
+
+        // ==================== 5. 히스토리 관리 (최대 10개) ====================
+        function addToHistory(draw) {
+            drawHistory.unshift(draw);
+            if (drawHistory.length > 10) {
+                drawHistory = drawHistory.slice(0, 10);
+            }
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const listEl = document.getElementById('history-list');
+            const countEl = document.getElementById('history-count');
+            countEl.textContent = `${drawHistory.length} / 10`;
+
+            if (drawHistory.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-6 rounded-xl bg-navy-950/50 border border-dashed border-slate-800 text-xs text-slate-500">
+                        아직 생성된 번호가 없습니다. 번호를 추첨하면 최대 10개까지 자동 기록됩니다.
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = drawHistory.map((item, idx) => `
+                <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-navy-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <span class="font-mono text-xs text-slate-500 w-5">#${idx + 1}</span>
+                        <div class="flex items-center gap-1.5">
+                            ${item.whites.map(n => `<span class="mini-ball mini-white w-7 h-7 text-xs">${n}</span>`).join('')}
+                            <span class="text-pb-gold font-bold text-xs mx-0.5">+</span>
+                            <span class="mini-ball mini-red w-7 h-7 text-xs">${item.powerball}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 ml-auto">
+                        <span class="font-mono text-[11px] text-slate-500">${item.time}</span>
+                        <button type="button" onclick="copyText('${formatDrawString(item)}', '히스토리 번호가 복사되었습니다.')"
+                                class="px-2.5 py-1 rounded-lg bg-navy-800 hover:bg-navy-700 text-[11px] font-semibold text-slate-300 transition-colors">
+                            복사
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            drawHistory = [];
+            renderHistory();
+            document.getElementById('multi-draw-box').classList.add('hidden');
+            showToast('생성 히스토리가 초기화되었습니다.');
+        }
+
+        // ==================== 6. 기대값(EV) 실시간 계산 & 테이블 업데이트 ====================
+        function setJackpot(millions) {
+            const clamped = Math.min(2000, Math.max(20, millions));
+            document.getElementById('jackpot-slider').value = clamped;
+            document.getElementById('jackpot-input').value = clamped;
+            updateEV();
+        }
+
+        function updateEV() {
+            const slider = document.getElementById('jackpot-slider');
+            const input = document.getElementById('jackpot-input');
+            const realityToggle = document.getElementById('reality-toggle');
+
+            let millions = parseFloat(input.value);
+            if (isNaN(millions) || millions < 20) millions = 20;
+            if (millions > 2000) millions = 2000;
+
+            const isRealityMode = realityToggle.checked;
+
+            // 토글 스위치 UI 동기화
+            const track = document.getElementById('toggle-track');
+            const thumb = document.getElementById('toggle-thumb');
+            const badge = document.getElementById('reality-badge');
+            const banner = document.getElementById('effective-jackpot-banner');
+
+            if (isRealityMode) {
+                track.classList.remove('bg-slate-700');
+                track.classList.add('bg-pb-gold');
+                thumb.style.transform = 'translateX(24px)';
+                badge.classList.remove('hidden');
+                banner.classList.remove('hidden');
+            } else {
+                track.classList.add('bg-slate-700');
+                track.classList.remove('bg-pb-gold');
+                thumb.style.transform = 'translateX(0px)';
+                badge.classList.add('hidden');
+                banner.classList.add('hidden');
+            }
+
+            // 명목 잭팟 및 실질 잭팟 계산
+            const nominalJackpot = millions * 1_000_000;
+            const effectiveJackpot = isRealityMode ? nominalJackpot * REALITY_MULTIPLIER : nominalJackpot;
+
+            // 잭팟 금액 텍스트 포맷
+            document.getElementById('jackpot-display').textContent =
+                millions >= 1000
+                    ? `$${(millions / 1000).toFixed(2)}B`
+                    : `$${millions.toLocaleString()}M`;
+
+            const eokDollar = (millions / 100).toFixed(2).replace(/\.00$/, '');
+            document.getElementById('jackpot-krw').textContent = `(${eokDollar}억 달러)`;
+
+            document.getElementById('effective-jackpot-text').textContent =
+                `$${(effectiveJackpot / 1_000_000).toFixed(2)}M`;
+
+            // EV 계산 (티켓 가격 $2.00 기준)
+            const jackpotEvContribution = effectiveJackpot / TOTAL_COMBINATIONS;
+            const grossEV = jackpotEvContribution + LOWER_TIER_FIXED_EV;
+            const netEV = grossEV - TICKET_PRICE;
+            const roi = (grossEV / TICKET_PRICE) * 100;
+
+            // KPI 카드 업데이트
+            document.getElementById('ev-gross').textContent = `$${grossEV.toFixed(4)}`;
+            document.getElementById('ev-gross-breakdown').textContent =
+                `1등 잭팟($${jackpotEvContribution.toFixed(4)}) + 하위 고정($${LOWER_TIER_FIXED_EV.toFixed(4)})`;
+
+            const netEl = document.getElementById('ev-net');
+            const netCard = document.getElementById('ev-net-card');
+            const statusTag = document.getElementById('ev-status-tag');
+
+            if (netEV >= 0) {
+                netEl.textContent = `+$${netEV.toFixed(4)}`;
+                netEl.className = 'mt-2 font-mono text-3xl font-extrabold text-emerald-400';
+                netCard.className = 'rounded-2xl bg-emerald-950/25 border border-emerald-500/40 p-5 transition-colors';
+                statusTag.textContent = '양(+)의 기대값';
+                statusTag.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300';
+            } else {
+                netEl.textContent = `-$${Math.abs(netEV).toFixed(4)}`;
+                netEl.className = 'mt-2 font-mono text-3xl font-extrabold text-rose-400';
+                netCard.className = 'rounded-2xl bg-navy-900/90 border border-rose-500/30 p-5 transition-colors';
+                statusTag.textContent = '기대 손실';
+                statusTag.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300';
+            }
+
+            const roiEl = document.getElementById('ev-roi');
+            roiEl.textContent = `${roi.toFixed(2)}%`;
+            roiEl.className = `mt-2 font-mono text-3xl font-extrabold ${roi >= 100 ? 'text-emerald-400' : 'text-sky-400'}`;
+            document.getElementById('ev-roi-bar').style.width = `${Math.min(100, roi)}%`;
+
+            // 전체 등수 테이블 업데이트
+            renderPrizeTable(effectiveJackpot, isRealityMode, grossEV);
+        }
+
+        function renderPrizeTable(effectiveJackpot, isRealityMode, grossEV) {
+            const tbody = document.getElementById('prize-table-body');
+
+            tbody.innerHTML = PRIZE_TIERS.map((tier, index) => {
+                const isJackpot = index === 0;
+                const prizeAmount = isJackpot ? effectiveJackpot : tier.prize;
+                const evContribution = (tier.combos * prizeAmount) / TOTAL_COMBINATIONS;
+
+                // 시각적 매칭 도트 생성
+                const whiteDots = Array(tier.white).fill('<span class="w-3 h-3 rounded-full bg-slate-200 inline-block shadow-sm"></span>').join('');
+                const emptyDots = Array(5 - tier.white).fill('<span class="w-3 h-3 rounded-full bg-slate-800 border border-slate-700 inline-block"></span>').join('');
+                const pbDot = tier.pb
+                    ? '<span class="w-3.5 h-3.5 rounded-full bg-pb-red inline-block shadow shadow-rose-500/50 ml-1"></span>'
+                    : '<span class="w-3.5 h-3.5 rounded-full bg-slate-800 border border-slate-700 inline-block ml-1"></span>';
+
+                let prizeDisplay;
+                if (isJackpot) {
+                    const mVal = (effectiveJackpot / 1_000_000).toFixed(effectiveJackpot % 1_000_000 === 0 ? 0 : 2);
+                    prizeDisplay = `<span class="text-pb-goldLight font-extrabold">Jackpot ($${Number(mVal).toLocaleString()}M)</span>` +
+                        (isRealityMode ? `<span class="block text-[10px] text-amber-300/80 font-sans">일시불·세후 적용</span>` : '');
+                } else {
+                    prizeDisplay = `$${tier.prize.toLocaleString()}`;
+                }
+
+                return `
+                    <tr class="${isJackpot ? 'bg-amber-950/15' : 'hover:bg-navy-800/40'} transition-colors">
+                        <td class="py-3.5 px-3 font-bold ${isJackpot ? 'text-pb-goldLight' : 'text-white'}">${tier.rank}</td>
+                        <td class="py-3.5 px-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="flex items-center gap-1">${whiteDots}${emptyDots}${pbDot}</div>
+                                <span class="font-mono text-xs text-slate-400">${tier.label}</span>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-3 text-right font-mono text-slate-200">${prizeDisplay}</td>
+                        <td class="py-3.5 px-3 text-right font-mono text-xs text-slate-300">${tier.oddsText}</td>
+                        <td class="py-3.5 px-3 text-right font-mono font-bold ${isJackpot ? 'text-pb-goldLight' : 'text-slate-200'}">
+                            $${evContribution.toFixed(4)}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('table-total-ev').textContent = `$${grossEV.toFixed(4)}`;
+        }
+
+        // ==================== 7. 클립보드 복사 & 커스텀 토스트 ====================
+        function copyCurrentNumbers() {
+            if (!currentDraw) {
+                showToast('먼저 번호를 생성해 주세요.');
+                return;
+            }
+            copyText(formatDrawString(currentDraw), '현재 파워볼 번호가 클립보드에 복사되었습니다.');
+        }
+
+        function copyFiveGames() {
+            if (!lastFiveDraws.length) return;
+            const text = lastFiveDraws.map((g, i) => `GAME #${i + 1}: ${formatDrawString(g)}`).join('\n');
+            copyText(text, '5게임 전체 번호가 클립보드에 복사되었습니다.');
+        }
+
+        function copyText(text, successMsg) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMsg);
+            } catch (err) {
+                showToast('복사에 실패했습니다. 직접 선택해 주세요.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = msg;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('flex');
+            }, 2600);
+        }
+
+        // ==================== 8. 이벤트 리스너 및 초기화 ====================
+        document.getElementById('jackpot-slider').addEventListener('input', (e) => {
+            document.getElementById('jackpot-input').value = e.target.value;
+            updateEV();
+        });
+
+        document.getElementById('jackpot-input').addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            if (!isNaN(val)) {
+                document.getElementById('jackpot-slider').value = Math.min(2000, Math.max(20, val));
+                updateEV();
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updateEV();
+            // 페이지 로드 시 첫 추첨 1회 자동 실행하여 시각적 완성도 제공
+            generateSingleGame();
+        });
+    </script>
+</body>
+</html>
